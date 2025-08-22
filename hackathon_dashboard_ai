@@ -1,0 +1,757 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard de Frete - Inteligência Competitiva</title>
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    <!-- Plotly.js for charts -->
+    <script src="https://cdn.plot.ly/plotly-2.31.1.min.js"></script>
+    <!-- Papa Parse for CSV handling -->
+    <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+    <!-- Day.js for date manipulation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dayjs/1.11.10/dayjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dayjs/1.11.10/plugin/advancedFormat.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        .plotly-container {
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800">
+
+    <!-- Main Container -->
+    <div class="flex flex-col md:flex-row min-h-screen">
+        <!-- Sidebar for Filters -->
+        <aside class="fixed top-0 left-0 h-full w-full md:w-80 bg-white shadow-xl p-6 overflow-y-auto z-50 transform md:translate-x-0 transition-transform duration-300 ease-in-out" id="sidebar">
+            <div class="flex justify-between items-center mb-6 md:mb-8">
+                <h2 class="text-2xl font-bold text-gray-900">Filtros</h2>
+                <button class="md:hidden text-gray-600 hover:text-gray-900" id="closeSidebar">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+            
+            <!-- File Upload -->
+            <div class="mb-6">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Carregar CSV</label>
+                <div class="relative">
+                    <input type="file" id="csvFile" accept=".csv" class="block w-full text-sm text-gray-500
+                    file:mr-4 file:py-2 file:px-4
+                    file:rounded-full file:border-0
+                    file:text-sm file:font-semibold
+                    file:bg-indigo-50 file:text-indigo-700
+                    hover:file:bg-indigo-100 cursor-pointer"/>
+                </div>
+            </div>
+
+            <!-- Competitors Filter -->
+            <div class="mb-6">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Competidores</label>
+                <div id="competitor-filter" class="space-y-2">
+                    <!-- Checkboxes will be dynamically added here -->
+                </div>
+            </div>
+
+            <!-- Own Fulfillment Toggle -->
+            <div class="flex items-center justify-between mb-6 p-2 rounded-lg bg-gray-50 border border-gray-200">
+                <label class="text-sm font-medium text-gray-700 cursor-pointer" for="ownFulfillmentToggle">Somente "Envio Próprio"</label>
+                <input type="checkbox" id="ownFulfillmentToggle" class="form-checkbox h-5 w-5 text-indigo-600 rounded-full border-gray-300"/>
+            </div>
+
+            <!-- Time Window Filter -->
+            <div class="mb-6">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Janela de Tempo</label>
+                <div class="space-y-2">
+                    <div class="flex items-center">
+                        <input type="radio" id="time-7" name="time-window" value="7" class="form-radio h-4 w-4 text-indigo-600 transition duration-150 ease-in-out" checked>
+                        <label for="time-7" class="ml-2 block text-sm text-gray-700">Últimos 7 dias</label>
+                    </div>
+                    <div class="flex items-center">
+                        <input type="radio" id="time-30" name="time-window" value="30" class="form-radio h-4 w-4 text-indigo-600 transition duration-150 ease-in-out">
+                        <label for="time-30" class="ml-2 block text-sm text-gray-700">Últimos 30 dias</label>
+                    </div>
+                    <div class="flex items-center">
+                        <input type="radio" id="time-60" name="time-window" value="60" class="form-radio h-4 w-4 text-indigo-600 transition duration-150 ease-in-out">
+                        <label for="time-60" class="ml-2 block text-sm text-gray-700">Últimos 60 dias</label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Comparison Mode -->
+            <div class="mb-6">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Modo de Comparação</label>
+                <div class="space-y-2">
+                    <div class="flex items-center">
+                        <input type="radio" id="mode-abs" name="comparison-mode" value="absoluto" class="form-radio h-4 w-4 text-indigo-600 transition duration-150 ease-in-out" checked>
+                        <label for="mode-abs" class="ml-2 block text-sm text-gray-700">Absoluto</label>
+                    </div>
+                    <div class="flex items-center">
+                        <input type="radio" id="mode-vs-meli" name="comparison-mode" value="vs-meli" class="form-radio h-4 w-4 text-indigo-600 transition duration-150 ease-in-out">
+                        <label for="mode-vs-meli" class="ml-2 block text-sm text-gray-700">vs. MELI</label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Regions Filter -->
+            <div class="mb-6">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Regiões</label>
+                <select id="region-filter" multiple class="block w-full mt-1 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-200 focus:ring-opacity-50">
+                    <!-- Options will be dynamically added -->
+                </select>
+            </div>
+            
+            <!-- Action Buttons -->
+            <div class="flex flex-col space-y-3">
+                <button id="reset-filters" class="w-full px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors">
+                    Resetar Filtros
+                </button>
+                <a id="download-data" class="w-full px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-center" download="dados_filtrados.csv">
+                    Baixar Dados Filtrados
+                </a>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <div class="flex-1 md:ml-80 p-6 md:p-10 transition-all duration-300 ease-in-out">
+            <!-- Sidebar toggle button for mobile -->
+            <button class="md:hidden fixed top-4 left-4 p-2 rounded-lg bg-white shadow-md z-50" id="openSidebar">
+                <i class="fas fa-bars text-lg text-gray-600"></i>
+            </button>
+
+            <!-- Page Header -->
+            <header class="mb-8">
+                <h1 class="text-3xl md:text-4xl font-extrabold text-gray-900 mb-2">
+                    <i class="fas fa-shipping-fast text-indigo-600 mr-3"></i>Dashboard de Frete
+                </h1>
+                <p class="text-gray-600">Análise competitiva de frete no Brasil entre Mercado Livre (MELI) e concorrentes.</p>
+            </header>
+
+            <!-- Charts Section -->
+            <section id="charts" class="space-y-12 mb-8">
+                <!-- Free Shipping Chart -->
+                <div id="chart-free-shipping" class="bg-white rounded-xl shadow-lg p-6">
+                    <h3 class="text-xl font-semibold text-gray-900 mb-4">1. Compra Mínima para Frete Grátis por Região</h3>
+                    <div id="plot-free-shipping" class="w-full plotly-container"></div>
+                </div>
+
+                <!-- Price Chart -->
+                <div id="chart-price" class="bg-white rounded-xl shadow-lg p-6">
+                    <h3 class="text-xl font-semibold text-gray-900 mb-4">2. Preço do Frete por Região</h3>
+                    <div id="plot-price" class="w-full plotly-container"></div>
+                </div>
+
+                <!-- ETA Chart -->
+                <div id="chart-eta" class="bg-white rounded-xl shadow-lg p-6">
+                    <h3 class="text-xl font-semibold text-gray-900 mb-4">3. Prazo do Frete (ETA) por Região</h3>
+                    <div id="plot-eta" class="w-full plotly-container"></div>
+                </div>
+
+                <!-- Own Fulfillment Coverage Chart -->
+                <div id="chart-own-fulfillment" class="bg-white rounded-xl shadow-lg p-6">
+                    <h3 class="text-xl font-semibold text-gray-900 mb-4">4. Cobertura com Envio Próprio</h3>
+                    <div id="plot-own-fulfillment" class="w-full plotly-container"></div>
+                </div>
+            </section>
+
+            <!-- A/B Comparator -->
+            <section class="mb-8 bg-white rounded-xl shadow-lg p-6">
+                <h2 class="text-2xl font-semibold text-gray-900 mb-4">5. Comparador A/B</h2>
+                <div class="flex flex-col sm:flex-row gap-4 mb-4">
+                    <div class="flex-1">
+                        <label for="player-a" class="block text-sm font-medium text-gray-700">Player A</label>
+                        <select id="player-a" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm"></select>
+                    </div>
+                    <div class="flex-1">
+                        <label for="player-b" class="block text-sm font-medium text-gray-700">Player B</label>
+                        <select id="player-b" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm"></select>
+                    </div>
+                </div>
+                <div id="ab-table-container">
+                    <!-- A/B comparison table will be inserted here -->
+                </div>
+                <div class="mt-6 text-center">
+                    <button id="show-opportunities" class="px-6 py-3 bg-indigo-600 text-white rounded-full hover:bg-indigo-700 transition-colors">
+                        Ver Oportunidades
+                    </button>
+                </div>
+                <div id="opportunities-list" class="mt-6 space-y-3">
+                    <!-- Opportunities will be displayed here -->
+                </div>
+            </section>
+
+            <!-- AI Insights Section -->
+            <section class="mb-8 bg-white rounded-xl shadow-lg p-6">
+                <h2 class="text-2xl font-semibold text-gray-900 mb-4">Insights com IA</h2>
+                <div class="flex items-center justify-between mb-4">
+                    <p class="text-gray-600">Gere um resumo e insights acionáveis com base nos dados filtrados.</p>
+                    <button id="generate-insights" class="px-6 py-3 bg-orange-500 text-white rounded-full hover:bg-orange-600 transition-colors">
+                        <i class="fas fa-magic mr-2"></i>Gerar Insights
+                    </button>
+                </div>
+                <div id="ai-insights-content" class="min-h-[100px] flex items-center justify-center p-4">
+                    <p class="text-gray-400">Clique em "Gerar Insights" para começar.</p>
+                </div>
+            </section>
+
+
+            <footer class="mt-10 text-center text-gray-500 text-sm">
+                Desenvolvido por time de UX, Data Engineering e Front-End.
+            </footer>
+        </div>
+    </div>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            dayjs.extend(window.dayjs_plugin_advancedFormat);
+
+            const MELI_COLOR = '#ffc000'; // Amarelo
+            const MELI_BLUE = '#003366';
+            const COMPETITOR_COLORS = ['#ff6347', '#4682b4', '#3cb371', '#9370db'];
+            const COLOR_MAP = {
+                'MELI': MELI_COLOR,
+                'Magalu': '#ff6347',
+                'Via Varejo': '#4682b4',
+                'Amazon': '#3cb371',
+                'Shopee': '#9370db'
+            };
+
+            const apiKey = ""; // API key for Gemini will be provided by the environment
+
+            let df_full = null;
+            let df_br = null;
+            let currentFilters = {};
+            let aggregatedData = [];
+            
+            const sidebar = document.getElementById('sidebar');
+            const openSidebarBtn = document.getElementById('openSidebar');
+            const closeSidebarBtn = document.getElementById('closeSidebar');
+            const generateInsightsBtn = document.getElementById('generate-insights');
+            const insightsContainer = document.getElementById('ai-insights-content');
+            
+            openSidebarBtn.addEventListener('click', () => {
+                sidebar.classList.remove('-translate-x-full');
+            });
+            closeSidebarBtn.addEventListener('click', () => {
+                sidebar.classList.add('-translate-x-full');
+            });
+
+            // Handle file upload
+            document.getElementById('csvFile').addEventListener('change', (event) => {
+                const file = event.target.files[0];
+                if (file) {
+                    Papa.parse(file, {
+                        header: true,
+                        dynamicTyping: true,
+                        complete: (results) => {
+                            if (results.data && results.data.length > 0) {
+                                df_full = results.data;
+                                processAndRenderData();
+                            } else {
+                                insightsContainer.innerHTML = `<p class="text-center text-red-500 p-4 bg-red-100 rounded-md">Erro: O arquivo CSV está vazio ou tem um formato incorreto.</p>`;
+                            }
+                        }
+                    });
+                }
+            });
+
+            function processAndRenderData() {
+                df_br = df_full.filter(row => row.country === 'BR');
+                df_br.forEach(row => {
+                    row.date = dayjs(row.date);
+                    row.price_brl = parseFloat(row.price_brl);
+                    row.eta_days = parseFloat(row.eta_days);
+                    row.free_shipping_threshold_brl = parseFloat(row.free_shipping_threshold_brl);
+                    row.own_fulfillment = parseInt(row.own_fulfillment);
+                });
+
+                const allCompetitors = [...new Set(df_br.map(row => row.competitor))];
+                const allRegions = [...new Set(df_br.map(row => row.region_level1))].sort();
+
+                populateCompetitorFilter(allCompetitors);
+                populateRegionFilter(allRegions);
+
+                currentFilters = {
+                    competitors: allCompetitors.filter(c => c !== 'MELI').concat(['MELI']),
+                    regions: allRegions,
+                    timeWindow: 30,
+                    ownFulfillment: false,
+                    comparisonMode: 'absoluto'
+                };
+                
+                document.querySelectorAll('#competitor-filter input').forEach(checkbox => { checkbox.addEventListener('change', updateFilters); });
+                document.getElementById('ownFulfillmentToggle').addEventListener('change', updateFilters);
+                document.querySelectorAll('input[name="time-window"]').forEach(radio => { radio.addEventListener('change', updateFilters); });
+                document.querySelectorAll('input[name="comparison-mode"]').forEach(radio => { radio.addEventListener('change', updateFilters); });
+                document.getElementById('region-filter').addEventListener('change', updateFilters);
+                document.getElementById('reset-filters').addEventListener('click', resetFilters);
+                document.getElementById('show-opportunities').addEventListener('click', showOpportunities);
+                generateInsightsBtn.addEventListener('click', generateInsights);
+
+                renderDashboard();
+            }
+
+            function populateCompetitorFilter(competitors) {
+                const container = document.getElementById('competitor-filter');
+                container.innerHTML = '';
+                competitors.forEach(comp => {
+                    const isChecked = true; 
+                    const div = document.createElement('div');
+                    div.className = 'flex items-center';
+                    div.innerHTML = `
+                        <input type="checkbox" id="comp-${comp}" value="${comp}" class="form-checkbox h-4 w-4 text-indigo-600 rounded" ${isChecked ? 'checked' : ''}>
+                        <label for="comp-${comp}" class="ml-2 text-sm text-gray-700">${comp}</label>
+                    `;
+                    container.appendChild(div);
+                });
+            }
+
+            function populateRegionFilter(regions) {
+                const select = document.getElementById('region-filter');
+                select.innerHTML = '';
+                regions.forEach(region => {
+                    const option = document.createElement('option');
+                    option.value = region;
+                    option.textContent = region;
+                    option.selected = true;
+                    select.appendChild(option);
+                });
+            }
+
+            function updateFilters() {
+                const competitorCheckboxes = document.querySelectorAll('#competitor-filter input:checked');
+                currentFilters.competitors = Array.from(competitorCheckboxes).map(cb => cb.value);
+                
+                const regionSelect = document.getElementById('region-filter');
+                currentFilters.regions = Array.from(regionSelect.options)
+                                                .filter(opt => opt.selected)
+                                                .map(opt => opt.value);
+
+                currentFilters.timeWindow = parseInt(document.querySelector('input[name="time-window"]:checked').value);
+                currentFilters.ownFulfillment = document.getElementById('ownFulfillmentToggle').checked;
+                currentFilters.comparisonMode = document.querySelector('input[name="comparison-mode"]:checked').value;
+
+                renderDashboard();
+            }
+
+            function resetFilters() {
+                document.getElementById('time-30').checked = true;
+                document.getElementById('mode-abs').checked = true;
+                document.getElementById('ownFulfillmentToggle').checked = false;
+
+                const allCompetitors = [...new Set(df_br.map(row => row.competitor))];
+                populateCompetitorFilter(allCompetitors);
+
+                const allRegions = [...new Set(df_br.map(row => row.region_level1))].sort();
+                Array.from(document.getElementById('region-filter').options).forEach(opt => opt.selected = true);
+                
+                updateFilters();
+            }
+
+            function filterData(df, filters, isPreviousPeriod = false) {
+                if (!df) return [];
+
+                const endDate = dayjs();
+                const startDate = endDate.subtract(filters.timeWindow, 'day');
+                
+                const filtered = df.filter(row => {
+                    let dateCheck = row.date.isAfter(startDate.subtract(1, 'day'));
+                    if (isPreviousPeriod) {
+                        const prevEndDate = startDate;
+                        const prevStartDate = prevEndDate.subtract(filters.timeWindow, 'day');
+                        dateCheck = row.date.isAfter(prevStartDate.subtract(1, 'day')) && row.date.isBefore(prevEndDate);
+                    }
+                    
+                    const competitorCheck = filters.competitors.includes(row.competitor);
+                    const regionCheck = filters.regions.includes(row.region_level1);
+                    const ownFulfillmentCheck = filters.ownFulfillment ? row.own_fulfillment === 1 : true;
+                    
+                    return dateCheck && competitorCheck && regionCheck && ownFulfillmentCheck;
+                });
+                return filtered;
+            }
+
+            function aggregateData(df) {
+                const grouped = {};
+                df.forEach(row => {
+                    const key = `${row.region_level1}|${row.competitor}`;
+                    if (!grouped[key]) {
+                        grouped[key] = {
+                            region_level1: row.region_level1,
+                            competitor: row.competitor,
+                            prices: [],
+                            etas: [],
+                            free_shipping_thresholds: [],
+                            own_fulfillments: [],
+                            last_seen_at: dayjs(0)
+                        };
+                    }
+                    grouped[key].prices.push(row.price_brl);
+                    grouped[key].etas.push(row.eta_days);
+                    if (row.free_shipping_threshold_brl > 0) {
+                        grouped[key].free_shipping_thresholds.push(row.free_shipping_threshold_brl);
+                    }
+                    grouped[key].own_fulfillments.push(row.own_fulfillment);
+                    if (dayjs(row.last_seen_at).isAfter(grouped[key].last_seen_at)) {
+                        grouped[key].last_seen_at = dayjs(row.last_seen_at);
+                    }
+                });
+
+                return Object.values(grouped).map(group => {
+                    const price_mean = group.prices.reduce((sum, val) => sum + val, 0) / group.prices.length;
+                    const eta_mean = group.etas.reduce((sum, val) => sum + val, 0) / group.etas.length;
+                    const free_shipping_mean = group.free_shipping_thresholds.length > 0 ? group.free_shipping_thresholds.reduce((sum, val) => sum + val, 0) / group.free_shipping_thresholds.length : 0;
+                    const own_fulfillment_coverage = group.own_fulfillments.filter(v => v === 1).length / group.own_fulfillments.length;
+
+                    group.prices.sort((a, b) => a - b);
+                    const p5 = group.prices[Math.floor(0.05 * group.prices.length)];
+                    const p95 = group.prices[Math.floor(0.95 * group.prices.length)];
+
+                    return {
+                        region_level1: group.region_level1,
+                        competitor: group.competitor,
+                        price_mean: price_mean,
+                        price_p5: p5,
+                        price_p95: p95,
+                        eta_mean: eta_mean,
+                        free_shipping_threshold_mean: free_shipping_mean,
+                        own_fulfillment_coverage: own_fulfillment_coverage,
+                        n_obs: group.prices.length,
+                        last_seen_at: group.last_seen_at.format('YYYY-MM-DD HH:mm:ss')
+                    };
+                });
+            }
+
+            function renderDashboard() {
+                const df_current = filterData(df_br, currentFilters);
+                
+                if (df_current.length === 0) {
+                    document.getElementById('charts').innerHTML = `<p class="text-center text-red-500">Nenhum dado encontrado com os filtros selecionados. Por favor, ajuste os filtros.</p>`;
+                    return;
+                }
+
+                aggregatedData = aggregateData(df_current);
+
+                renderCharts(aggregatedData);
+                renderABComparator(aggregatedData);
+                updateDownloadLink(df_current);
+            }
+            
+            function renderCharts(aggregatedData) {
+                const colors = Object.values(COLOR_MAP);
+                const competitors = Object.keys(COLOR_MAP);
+                
+                const freeShippingData = aggregatedData.filter(d => d.free_shipping_threshold_mean > 0);
+                const freeShippingLayout = {
+                    title: { text: 'Compra Mínima para Frete Grátis por Região' },
+                    barmode: 'group',
+                    xaxis: { title: 'Média de Compra Mínima (R$)' },
+                    yaxis: { title: 'Região' },
+                    paper_bgcolor: 'transparent',
+                    plot_bgcolor: 'transparent'
+                };
+                const freeShippingTraces = competitors.map(comp => ({
+                    name: comp,
+                    x: freeShippingData.filter(d => d.competitor === comp).map(d => d.free_shipping_threshold_mean),
+                    y: freeShippingData.filter(d => d.competitor === comp).map(d => d.region_level1),
+                    type: 'bar',
+                    orientation: 'h',
+                    marker: { color: COLOR_MAP[comp] },
+                    hovertemplate: '<b>%{y}</b><br>Competidor: %{data.name}<br>Valor: R$%{x:.2f}<extra></extra>'
+                }));
+                Plotly.newPlot('plot-free-shipping', freeShippingTraces, freeShippingLayout, { responsive: true });
+
+                const priceData = aggregatedData;
+                const priceLayout = {
+                    title: { text: 'Preço do Frete por Região' },
+                    barmode: 'group',
+                    xaxis: { title: 'Preço Médio (R$)' },
+                    yaxis: { title: 'Região' },
+                    paper_bgcolor: 'transparent',
+                    plot_bgcolor: 'transparent'
+                };
+                const priceTraces = competitors.map(comp => ({
+                    name: comp,
+                    x: priceData.filter(d => d.competitor === comp).map(d => d.price_mean),
+                    y: priceData.filter(d => d.competitor === comp).map(d => d.region_level1),
+                    type: 'bar',
+                    orientation: 'h',
+                    marker: { color: COLOR_MAP[comp] },
+                    hovertemplate: '<b>%{y}</b><br>Competidor: %{data.name}<br>Preço Médio: R$%{x:.2f}<extra></extra>'
+                }));
+                Plotly.newPlot('plot-price', priceTraces, priceLayout, { responsive: true });
+
+                const etaData = aggregatedData;
+                const etaLayout = {
+                    title: { text: 'Prazo do Frete (ETA) por Região' },
+                    barmode: 'group',
+                    xaxis: { title: 'Prazo Médio (dias)' },
+                    yaxis: { title: 'Região' },
+                    paper_bgcolor: 'transparent',
+                    plot_bgcolor: 'transparent'
+                };
+                const etaTraces = competitors.map(comp => ({
+                    name: comp,
+                    x: etaData.filter(d => d.competitor === comp).map(d => d.eta_mean),
+                    y: etaData.filter(d => d.competitor === comp).map(d => d.region_level1),
+                    type: 'bar',
+                    orientation: 'h',
+                    marker: { color: COLOR_MAP[comp] },
+                    hovertemplate: '<b>%{y}</b><br>Competidor: %{data.name}<br>ETA Médio: %{x:.1f} dias<extra></extra>'
+                }));
+                Plotly.newPlot('plot-eta', etaTraces, etaLayout, { responsive: true });
+
+                // Chart 4: Own Fulfillment Coverage (Bar Chart)
+                const ownFulfillmentData = Object.values(aggregatedData.reduce((acc, curr) => {
+                    if (!acc[curr.competitor]) {
+                        acc[curr.competitor] = { competitor: curr.competitor, own_fulfillments: [] };
+                    }
+                    acc[curr.competitor].own_fulfillments.push(curr.own_fulfillment_coverage);
+                    return acc;
+                }, {})).map(d => ({
+                    competitor: d.competitor,
+                    coverage: (d.own_fulfillments.reduce((sum, val) => sum + val, 0) / d.own_fulfillments.length) * 100
+                })).sort((a,b) => b.coverage - a.coverage);
+                
+                const ownFulfillmentLayout = {
+                    title: { text: 'Cobertura com Envio Próprio (%)' },
+                    xaxis: { title: 'Porcentagem de Cobertura (%)' },
+                    yaxis: { title: 'Competidor', automargin: true },
+                    paper_bgcolor: 'transparent',
+                    plot_bgcolor: 'transparent'
+                };
+                const ownFulfillmentTrace = [{
+                    x: ownFulfillmentData.map(d => d.coverage),
+                    y: ownFulfillmentData.map(d => d.competitor),
+                    type: 'bar',
+                    orientation: 'h',
+                    marker: { color: ownFulfillmentData.map(d => COLOR_MAP[d.competitor]) },
+                    hovertemplate: '<b>%{y}</b><br>Cobertura: %{x:.1f}%<extra></extra>'
+                }];
+                Plotly.newPlot('plot-own-fulfillment', ownFulfillmentTrace, ownFulfillmentLayout, { responsive: true });
+            }
+
+            function renderABComparator(aggregatedData) {
+                const competitors = [...new Set(aggregatedData.map(d => d.competitor))];
+                const playerASelect = document.getElementById('player-a');
+                const playerBSelect = document.getElementById('player-b');
+                
+                playerASelect.innerHTML = competitors.map(c => `<option value="${c}">${c}</option>`).join('');
+                playerBSelect.innerHTML = competitors.map(c => `<option value="${c}">${c}</option>`).join('');
+                if(competitors.length > 1) {
+                    playerBSelect.value = competitors[1];
+                }
+
+                const renderTable = () => {
+                    const playerA = playerASelect.value;
+                    const playerB = playerBSelect.value;
+
+                    if (!playerA || !playerB) return;
+                    
+                    const dataA = aggregatedData.filter(d => d.competitor === playerA);
+                    const dataB = aggregatedData.filter(d => d.competitor === playerB);
+                    
+                    const tableData = [];
+                    const regions = [...new Set([...dataA.map(d => d.region_level1), ...dataB.map(d => d.region_level1)])];
+                    
+                    regions.forEach(region => {
+                        const rowA = dataA.find(d => d.region_level1 === region);
+                        const rowB = dataB.find(d => d.region_level1 === region);
+                        
+                        const priceDelta = rowA && rowB ? rowA.price_mean - rowB.price_mean : null;
+                        const etaDelta = rowA && rowB ? rowA.eta_mean - rowB.eta_mean : null;
+                        
+                        tableData.push({
+                            region: region,
+                            price_delta: priceDelta,
+                            eta_delta: etaDelta
+                        });
+                    });
+
+                    let tableHTML = `
+                        <table class="min-w-full bg-white rounded-lg shadow-sm">
+                            <thead>
+                                <tr class="border-b">
+                                    <th class="py-3 px-4 text-left text-sm font-semibold text-gray-600">Região</th>
+                                    <th class="py-3 px-4 text-left text-sm font-semibold text-gray-600">Δ Preço (${playerA} - ${playerB})</th>
+                                    <th class="py-3 px-4 text-left text-sm font-semibold text-gray-600">Δ Prazo (${playerA} - ${playerB})</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                    `;
+                    tableData.forEach(row => {
+                        const priceClass = row.price_delta !== null ? (row.price_delta < 0 ? 'text-green-600 font-bold' : (row.price_delta > 0 ? 'text-red-600 font-bold' : 'text-gray-900')) : 'text-gray-400';
+                        const etaClass = row.eta_delta !== null ? (row.eta_delta < 0 ? 'text-green-600 font-bold' : (row.eta_delta > 0 ? 'text-red-600 font-bold' : 'text-gray-900')) : 'text-gray-400';
+                        
+                        tableHTML += `
+                            <tr class="border-b last:border-b-0 hover:bg-gray-50">
+                                <td class="py-3 px-4 text-sm text-gray-700">${row.region}</td>
+                                <td class="py-3 px-4 text-sm ${priceClass}">${row.price_delta !== null ? `R$ ${row.price_delta.toFixed(2)}` : 'N/A'}</td>
+                                <td class="py-3 px-4 text-sm ${etaClass}">${row.eta_delta !== null ? `${row.eta_delta.toFixed(1)} dias` : 'N/A'}</td>
+                            </tr>
+                        `;
+                    });
+                    tableHTML += `
+                            </tbody>
+                        </table>
+                    `;
+                    document.getElementById('ab-table-container').innerHTML = tableHTML;
+                };
+
+                playerASelect.addEventListener('change', renderTable);
+                playerBSelect.addEventListener('change', renderTable);
+                
+                renderTable();
+            }
+
+            function showOpportunities() {
+                const opportunitiesDiv = document.getElementById('opportunities-list');
+                opportunitiesDiv.innerHTML = '';
+                
+                const meliData = aggregatedData.filter(d => d.competitor === 'MELI');
+                
+                const allRegions = [...new Set(aggregatedData.map(d => d.region_level1))];
+                
+                let foundOpportunities = false;
+                
+                allRegions.forEach(region => {
+                    const meliRegionData = meliData.find(d => d.region_level1 === region);
+                    if (!meliRegionData) return;
+                    
+                    const competitorData = aggregatedData.filter(d => d.region_level1 === region && d.competitor !== 'MELI');
+                    
+                    // Price opportunities
+                    competitorData.forEach(comp => {
+                        if (comp.price_mean < meliRegionData.price_mean - 5) {
+                            opportunitiesDiv.innerHTML += `
+                                <div class="p-4 bg-gray-100 rounded-lg">
+                                    <p class="text-sm text-gray-800">
+                                        <i class="fas fa-arrow-alt-circle-down text-red-500 mr-2"></i>
+                                        Oportunidade de Preço: Em <span class="font-bold">${comp.region_level1}</span>, <span class="font-bold">${comp.competitor}</span> é R$ ${(meliRegionData.price_mean - comp.price_mean).toFixed(2)} mais barato.
+                                    </p>
+                                </div>
+                            `;
+                            foundOpportunities = true;
+                        }
+                    });
+
+                    // ETA opportunities
+                    competitorData.forEach(comp => {
+                        if (comp.eta_mean < meliRegionData.eta_mean - 1) {
+                            opportunitiesDiv.innerHTML += `
+                                <div class="p-4 bg-gray-100 rounded-lg">
+                                    <p class="text-sm text-gray-800">
+                                        <i class="fas fa-arrow-down-long text-red-500 mr-2"></i>
+                                        Oportunidade de Prazo: Em <span class="font-bold">${comp.region_level1}</span>, <span class="font-bold">${comp.competitor}</span> é ${(meliRegionData.eta_mean - comp.eta_mean).toFixed(1)} dias mais rápido.
+                                    </p>
+                                </div>
+                            `;
+                            foundOpportunities = true;
+                        }
+                    });
+                });
+
+                if (!foundOpportunities) {
+                    opportunitiesDiv.innerHTML = `<p class="text-center text-gray-500">Nenhuma oportunidade de melhoria relevante encontrada.</p>`;
+                }
+            }
+
+            async function generateInsights() {
+                const insightsContainer = document.getElementById('ai-insights-content');
+                insightsContainer.innerHTML = `<div class="flex items-center space-x-2 text-gray-500">
+                                                <i class="fas fa-spinner fa-spin text-xl"></i>
+                                                <span>Gerando insights...</span>
+                                            </div>`;
+
+                const df_current = filterData(df_br, currentFilters);
+                if (df_current.length === 0) {
+                    insightsContainer.innerHTML = `<p class="text-center text-red-500 p-4 bg-red-100 rounded-md">Nenhum dado para analisar. Por favor, ajuste seus filtros.</p>`;
+                    return;
+                }
+                const aggregatedData = aggregateData(df_current);
+
+                const promptData = aggregatedData.map(d => ({
+                    competidor: d.competitor,
+                    regiao: d.region_level1,
+                    preco_medio_brl: d.price_mean,
+                    prazo_medio_dias: d.eta_mean,
+                    frete_gratis_minimo_brl: d.free_shipping_threshold_mean,
+                    cobertura_propria: d.own_fulfillment_coverage
+                }));
+
+                const prompt = `Você é um analista de dados sênior especializado em inteligência competitiva de e-commerce. Sua tarefa é analisar os dados de frete e gerar insights acionáveis para a equipe do Mercado Livre (MELI).
+
+Com base nos dados agregados a seguir (formato JSON), crie um resumo conciso com os principais insights sobre a competitividade do frete do Mercado Livre (MELI) versus seus concorrentes. Identifique pontos fortes e fracos do MELI em preço, prazo e frete grátis. A resposta deve ser uma lista de 5 a 7 pontos principais.
+
+Dados de Frete:
+${JSON.stringify(promptData, null, 2)}
+`;
+
+                const payload = {
+                    contents: [{ role: "user", parts: [{ text: prompt }] }],
+                    generationConfig: {
+                        responseMimeType: "application/json",
+                        responseSchema: {
+                            type: "ARRAY",
+                            items: { "type": "STRING" }
+                        }
+                    }
+                };
+                
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+
+                let response;
+                try {
+                    response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`Erro na API: ${response.status} ${response.statusText}`);
+                    }
+                    
+                    const result = await response.json();
+                    const insights = JSON.parse(result.candidates[0].content.parts[0].text);
+                    
+                    insightsContainer.innerHTML = `<ul class="list-disc list-inside space-y-2">
+                        ${insights.map(item => `<li class="text-gray-700">${item}</li>`).join('')}
+                    </ul>`;
+
+                } catch (error) {
+                    console.error('Erro ao gerar insights:', error);
+                    insightsContainer.innerHTML = `<p class="text-red-500 p-4 bg-red-100 rounded-md">Ocorreu um erro ao gerar os insights. Por favor, tente novamente.</p>`;
+                }
+            }
+
+
+            function updateDownloadLink(df) {
+                const csv = Papa.unparse(df);
+                const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+                const url = URL.createObjectURL(blob);
+                const downloadLink = document.getElementById('download-data');
+                downloadLink.href = url;
+            }
+
+            // Initial render on load (if a file is already provided by the environment, or waits for user upload)
+            if (typeof shipping_competition_synthetic_csv !== 'undefined') {
+                Papa.parse(shipping_competition_synthetic_csv, {
+                    header: true,
+                    dynamicTyping: true,
+                    complete: (results) => {
+                        df_full = results.data;
+                        processAndRenderData();
+                    }
+                });
+            }
+        });
+    </script>
+
+</body>
+</html>
